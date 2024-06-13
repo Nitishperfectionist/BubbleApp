@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bubble app</title>
+<style>
+    
+canvas {
+    border: 4px solid rgb(0, 0, 0);
+    margin-left: 450px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+h1{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color:black;
+    font-weight:1000;
+    padding-top: 20px; 
+}
+#resetButton {
+    background-color:white;
+    border: 3px solid black;
+    color:3px solid black;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    margin-left: 1120px;
+    margin-top: 20px;
+    box-shadow: 4px 4px 0px black;
+}
+
+#resetButton:hover {
+    background-color: red;
+}
+
+</style>
+</head>
+<body>
+    <h1>Bubble app</h1>
+    <canvas id="myCanvas" width="800" height="400"></canvas>
+    <button id="resetButton">Reset</button>
+<script>
+  
+const canvas = document.getElementById('myCanvas');
+const ctx = canvas.getContext('2d');
+const resetButton = document.getElementById('resetButton');
+
+const circleRadius = 35;
+const circleSpacing = 550;
+const arrowWidth = 17;
+const arrowHeight = 25;
+const canvasWidth = canvas.width;
+const canvasHeight = canvas.height;
+
+const originalColors = ['#ff0000', '#0000ff', '#ffff00', '#ffa500'];
+
+let circles = [];
+let arrows = [];
+let isVisible = [true, true, true, true]; // Track visibility of arrows
+
+function drawCircle(x, y, color) {
+    // Draw circle border
+    ctx.beginPath();
+    ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = 'black'; // Black border color
+    ctx.lineWidth = 3; // Border thickness
+    ctx.stroke();
+    ctx.closePath();
+
+    // Draw filled circle
+    ctx.beginPath();
+    ctx.arc(x, y, circleRadius - 1.5, 0, Math.PI * 2); //  radius for inner fill to avoid overlapping with the border
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.closePath();
+}
+
+function drawArrow(x, y, isVisible) {
+    if (isVisible) {
+        // Dimensions of the arrow
+        var rectWidth = 40; 
+        var rectHeight = 9;
+
+        // Calculate the coordinates for the points of the triangle
+        var triangleX1 = x - arrowWidth / 2;
+        var triangleY1 = y;
+        var triangleX2 = x + arrowWidth / 2;
+        var triangleY2 = y + arrowHeight / 2;
+        var triangleX3 = x + arrowWidth / 2;
+        var triangleY3 = y - arrowHeight / 2;
+
+        // Draw triangle arrow
+        ctx.beginPath();
+        ctx.moveTo(triangleX1, triangleY1);
+        ctx.lineTo(triangleX2, triangleY2);
+        ctx.lineTo(triangleX3, triangleY3);
+        ctx.closePath();
+        ctx.fillStyle = '#000';
+        ctx.fill();
+
+        // Draw rectangle
+        ctx.fillRect(x + arrowWidth / 2, y - rectHeight / 2, rectWidth, rectHeight);
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Define spacing between circles
+    const circleSpacingY = 8;
+
+    // Draw circles and arrows
+    for (let i = 0; i < 4; i++) {
+        const circleX = canvasWidth / 9;
+        const circleY = (canvasHeight / 5) * (i + 1) + (circleSpacingY * i); // Add spacing between circles
+        const arrowX = circleX + (circleRadius * 2) + circleSpacing;
+        const arrowY = circleY;
+
+        drawCircle(circleX, circleY, originalColors[i]);
+        drawArrow(arrowX, arrowY, isVisible[i]);
+        circles.push({ x: circleX, y: circleY, color: originalColors[i] });
+        arrows.push({ x: arrowX, y: arrowY });
+    }
+}
+
+function reset() {
+    circles = [];
+    arrows = [];
+    isVisible = [true, true, true, true]; // Reset visibility of all arrows
+    draw();
+}
+
+function checkCollision(arrowX, arrowY) {
+    for (const circle of circles) {
+        const distance = Math.sqrt((arrowX - circle.x) ** 2 + (arrowY - circle.y) ** 2);
+        if (distance <= circleRadius + arrowWidth / 2) {
+            return circle;
+        }
+    }
+    return null;
+}
+
+canvas.addEventListener('click', function (event) {
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    const clickedCircle = checkCollision(x, y);
+    if (clickedCircle) {
+        const arrowIndex = circles.findIndex(circle => circle === clickedCircle);
+        const arrow = arrows[arrowIndex];
+
+        let arrowX = arrow.x;
+        let arrowY = arrow.y;
+
+        isVisible[arrowIndex] = false; // Make arrow invisible from initial position
+
+        let interval = setInterval(() => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the entire canvas
+            draw(); // Redraw circles
+            arrowX -= (arrowX - clickedCircle.x) / 10;
+            drawArrow(arrowX, arrowY, true); // Draw the arrow as moving towards the circle
+            const collisionCircle = checkCollision(arrowX, arrowY);
+            if (collisionCircle && collisionCircle === clickedCircle) {
+                clearInterval(interval);
+                const randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16); // Generate random color
+                ctx.clearRect(clickedCircle.x - circleRadius, clickedCircle.y - circleRadius, circleRadius * 2, circleRadius * 2);
+                drawCircle(clickedCircle.x, clickedCircle.y, randomColor);
+                clickedCircle.color = randomColor;
+                isVisible[arrowIndex] = true; // Make the arrow visible after hitting the circle
+            }
+            // Stop arrow if it's touching the circle
+            const distance = Math.sqrt((arrowX - clickedCircle.x) ** 2 + (arrowY - clickedCircle.y) ** 2);
+            if (distance <= circleRadius + arrowWidth / 2) {
+                clearInterval(interval);
+            }
+        }, 10);
+    }
+});
+
+resetButton.addEventListener('click', reset);
+
+draw();
+
+</script>
+</body>
+</html>
+
+
+
+  
